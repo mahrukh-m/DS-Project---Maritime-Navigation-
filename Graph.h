@@ -3,7 +3,6 @@
 #include <string>
 using namespace std;
 
-
 struct Route
 {
     string destination;
@@ -16,22 +15,24 @@ struct Route
 
     Route(string dest, string d, string dTime, string aTime, int cost, string comp)
     {
-        destination=dest;
-        date=d;
-        depTime=dTime;
-        arrTime=aTime;
-        vCost=cost;
-        company=comp;
-        next=NULL;
+        destination = dest;
+        date = d;
+        depTime = dTime;
+        arrTime = aTime;
+        vCost = cost;
+        company = comp;
+        next = NULL;
     }
 };
 
-struct Vertex{
+struct Vertex
+{
     string port;
     int portCharge;
 };
 
-struct Graph{
+struct Graph
+{
     int vertices;
     Route **edges;
     string ports[40];
@@ -39,26 +40,26 @@ struct Graph{
 
     Graph()
     {
-        vertices=40;
-        edges= new Route*[vertices];
-        for(int i=0;i<vertices;i++)
+        vertices = 40;
+        edges = new Route*[vertices];
+        for(int i = 0; i < vertices; i++)
         {
-            edges[i]=NULL;
+            edges[i] = NULL;
         }
 
-        string temp[40]={"AbuDhabi", "Alexandria", "Antwerp", "Athens", "Busan", "CapeTown", "Chittagong", "Colombo", "Copenhagen", "Doha", "Dubai", "Dublin", "Durban", "Genoa", "Hamburg", "Helsinki",
+        string temp[40] = {"AbuDhabi", "Alexandria", "Antwerp", "Athens", "Busan", "CapeTown", "Chittagong", "Colombo", "Copenhagen", "Doha", "Dubai", "Dublin", "Durban", "Genoa", "Hamburg", "Helsinki",
              "HongKong", "Istanbul", "Jakarta", "Jeddah", "Karachi", "Lisbon", "London", "LosAngeles", "Manila", "Marseille", "Melbourne", "Montreal", "Mumbai", "NewYork", "Osaka", "Oslo", "PortLouis", 
              "Rotterdam", "Shanghai", "Singapore", "Stockholm", "Sydney", "Tokyo", "Vancouver"};
-        
-        for(int i=0;i<40;i++)
+
+        for(int i = 0; i < 40; i++)
         {
-            ports[i]=temp[i];
+            ports[i] = temp[i];
         }
-        head=NULL;
-    
+        head = NULL;
+
     }
 
-    void addToGraph(Route *route,string origin, int index)
+    void addToGraph(Route *route, string origin, int index)
     {
         if (index < 0 || index >= vertices) 
         {
@@ -66,28 +67,28 @@ struct Graph{
         }
             
 
-        if(edges[index]==NULL)
+        if (edges[index] == NULL)
         {
-            edges[index]=route;
+            edges[index] = route;
             return;
         }
 
-        head=edges[index];
-        Route *temp=head;
+        head = edges[index];
+        Route *temp = head;
 
-        while(temp->next!=NULL)
+        while (temp->next != NULL)
         {
-            temp=temp->next;
+            temp = temp->next;
         }
 
-        temp->next=route;
+        temp->next = route;
     }
 
     int getPortIndex(string name)
     {
-        for(int i=0;i<vertices;i++)
+        for (int i = 0; i < vertices; i++)
         {
-            if(name==ports[i])
+            if (name == ports[i])
             {
                 return i;
             }
@@ -107,32 +108,30 @@ struct Graph{
 
         string origin, destination, date, depTime, arrTime, company;
         int vCost;
-        while(fin>>origin>>destination>> date>> depTime>>arrTime>> vCost>> company)
+        while (fin >> origin >> destination >> date >> depTime >> arrTime >> vCost >> company)
         {
-            Route *route = new Route(destination,date, depTime, arrTime, vCost, company);
-            int index=getPortIndex(origin);
-            addToGraph(route,origin,index);
+            Route *route = new Route(destination, date, depTime, arrTime, vCost, company);
+            int index = getPortIndex(origin);
+            addToGraph(route, origin, index);
         }
-        cout<<"Successfully loaded file"<<endl;
+        cout << "Successfully loaded file" << endl;
 
         fin.close();
     }
 
     void printGraph()
     {
-        for(int i=0;i<vertices;i++)
+        for (int i = 0; i < vertices; i++)
         {
-            Route *temp=edges[i];
-            cout<<ports[i]<<": ";
-            while(temp!=NULL)
+            Route *temp = edges[i];
+            cout << ports[i] << ": ";
+            while (temp != NULL)
             {
-                cout<<" --> "<<temp->destination;
-                temp=temp->next;
+                cout << " --> " << temp->destination;
+                temp = temp->next;
             }
-            cout<<endl;
+            cout << endl;
         }
-
     }
-
 };
 
