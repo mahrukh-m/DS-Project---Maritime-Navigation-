@@ -1,11 +1,16 @@
 #pragma once
 #include <SFML/Graphics.hpp>
-#include "Graph.h"
+#include <SFML/Window.hpp>
+#include <iostream>
+#include <fstream>
+#include <string>
 #include <cmath>
-#include <cstdlib>
+
+using namespace std;
 
 const int MAX_PORTS = 40;
 const int MAX_ROUTES = 2000;
+const int MAX_WAYPOINTS = 10;
 const float PORT_RADIUS = 5.f;
 const float HIGHLIGHT_RADIUS = 7.f;
 
@@ -27,11 +32,22 @@ struct Routes {
     bool valid;
 };
 
+// Waypoint structure for routing around continents
+struct Waypoint {
+    double lat;
+    double lon;
+    sf::Vector2f pixel;
+};
+
 // ----------------- Globals -----------------
 Port ports[MAX_PORTS];
 int portCount = 0;
 Routes routes[MAX_ROUTES];
 int routeCount = 0;
+
+// Critical ocean waypoints to route ships around continents
+const int WAYPOINT_COUNT = 15;
+Waypoint oceanWaypoints[WAYPOINT_COUNT];
 
 // ----------------- Helpers -----------------
 int findPortIndexByName(const string& name) {
@@ -46,8 +62,43 @@ sf::Vector2f latlonToPixel(double lat, double lon, const sf::Vector2u& imgSize) 
     return sf::Vector2f((float)x, (float)y);
 }
 
+void loadOceanWaypoints() {
+    // Strategic waypoints for ocean routing
+    // These points help routes go around major landmasses
+
+    // Suez Canal area
+    oceanWaypoints[0].lat = 30.0; oceanWaypoints[0].lon = 32.0;
+    // Cape of Good Hope
+    oceanWaypoints[1].lat = -35.0; oceanWaypoints[1].lon = 20.0;
+    // Gibraltar Strait
+    oceanWaypoints[2].lat = 36.0; oceanWaypoints[2].lon = -5.0;
+    // Panama Canal
+    oceanWaypoints[3].lat = 9.0; oceanWaypoints[3].lon = -80.0;
+    // Malacca Strait
+    oceanWaypoints[4].lat = 2.0; oceanWaypoints[4].lon = 100.0;
+    // Horn of Africa
+    oceanWaypoints[5].lat = 12.0; oceanWaypoints[5].lon = 50.0;
+    // Mid-Atlantic
+    oceanWaypoints[6].lat = 0.0; oceanWaypoints[6].lon = -30.0;
+    // Mid-Pacific
+    oceanWaypoints[7].lat = 0.0; oceanWaypoints[7].lon = -150.0;
+    // Mid-Indian Ocean
+    oceanWaypoints[8].lat = -10.0; oceanWaypoints[8].lon = 80.0;
+    // North Atlantic
+    oceanWaypoints[9].lat = 50.0; oceanWaypoints[9].lon = -30.0;
+    // North Pacific
+    oceanWaypoints[10].lat = 40.0; oceanWaypoints[10].lon = -160.0;
+    // South Pacific
+    oceanWaypoints[11].lat = -20.0; oceanWaypoints[11].lon = 160.0;
+    // Bering Strait area
+    oceanWaypoints[12].lat = 60.0; oceanWaypoints[12].lon = -170.0;
+    // Indonesian waters
+    oceanWaypoints[13].lat = -5.0; oceanWaypoints[13].lon = 115.0;
+    // Arabian Sea
+    oceanWaypoints[14].lat = 15.0; oceanWaypoints[14].lon = 65.0;
+}
+
 void loadPorts() {
-    // Hardcoded port list with coordinates
     string names[MAX_PORTS] = {
         "AbuDhabi","Alexandria","Antwerp","Athens","Busan","CapeTown","Chittagong","Colombo",
         "Copenhagen","Doha","Dubai","Dublin","Durban","Genoa","Hamburg","Helsinki","HongKong",
@@ -79,7 +130,7 @@ void loadPorts() {
         portCount++;
     }
 
-    cout << "Loaded " << portCount << " ports (hardcoded)" << endl;
+    cout << "Loaded " << portCount << " ports" << endl;
 }
 
 bool loadRoutes(const string& fname) {
@@ -96,7 +147,6 @@ bool loadRoutes(const string& fname) {
         int oi = findPortIndexByName(origin);
         int di = findPortIndexByName(destination);
         if (oi == -1 || di == -1) {
-            cerr << "Warning: Port not found for route: " << origin << " -> " << destination << endl;
             continue;
         }
         routes[routeCount].originIndex = oi;
@@ -110,192 +160,215 @@ bool loadRoutes(const string& fname) {
         routeCount++;
     }
     fin.close();
-    cout << "Loaded " << routeCount << " routes from " << fname << endl;
+    cout << "Loaded " << routeCount << " routes" << endl;
     return true;
 }
 
-
-
-
-class SFMLrun {
-private:
-    sf::RenderWindow window;
-    Graph graph; 
-
-public:
-    SFMLrun(): window(sf::VideoMode(800, 600), "Maritime Navigation") 
-    {
-        graph.loadFile("Routes.txt");
+string intToString(int val) {
+    if (val == 0) return "0";
+    string result = "";
+    bool negative = val < 0;
+    if (negative) val = -val;
+    while (val > 0) {
+        result = char('0' + (val % 10)) + result;
+        val /= 10;
     }
-    void run()
-    {
-         loadPorts();
+    if (negative) result = "-" + result;
+    return result;
+}
 
-    const string routeFile = "routes.txt";
-    const string mapFile = "world_map.png";
+sf::VideoMode getDesktopMode() {
+    return sf::VideoMode::getDesktopMode();
+}
 
-    if (!loadRoutes(routeFile)) return ;
+// Determine which major ocean body separates two ports
+int determineOceanRoute(const Port& origin, const Port& dest) {
+    // Returns region code for routing logic
+    double oLat = origin.lat, oLon = origin.lon;
+    double dLat = dest.lat, dLon = dest.lon;
 
-    sf::Texture mapTexture;
-    if (!mapTexture.loadFromFile(mapFile)) {
-        cerr << "Failed to load map: " << mapFile << endl;
-        return ;
+    // Europe to Asia (via Suez or around Africa)
+    if ((oLon < 30 && oLat > 30) && (dLon > 50 && dLat > 10)) return 1; // Via Suez
+
+    // Europe to East Asia (via Suez)
+    if ((oLon < 30 && oLat > 30) && (dLon > 100)) return 2;
+
+    // Americas to Asia (via Pacific)
+    if ((oLon < -60 && oLon > -130) && (dLon > 100)) return 3;
+
+    // Africa to Asia (Indian Ocean)
+    if ((oLon > 0 && oLon < 40 && oLat < 0) && (dLon > 60 && dLat < 30)) return 4;
+
+    // Cross-Atlantic
+    if ((oLon < -30 && oLon > -80) && (dLon > -20 && dLon < 20)) return 5;
+
+    // Around Africa (Cape route)
+    if ((oLon < 20 && oLat > 30) && (dLon > 30 && dLat < 0)) return 6;
+
+    return 0; // Default/nearby
+}
+
+// Generate intelligent waypoints to avoid land
+void generateOceanPath(sf::Vector2f start, sf::Vector2f end, int originIdx, int destIdx,
+    sf::Vector2f* pathPoints, int& pathLength) {
+    pathPoints[0] = start;
+    pathLength = 1;
+
+    // Get route type based on geography
+    int routeType = determineOceanRoute(ports[originIdx], ports[destIdx]);
+
+    // Add intermediate waypoints based on route type
+    if (routeType == 1) { // Europe to Middle East via Suez
+        pathPoints[pathLength++] = oceanWaypoints[2].pixel; // Gibraltar
+        pathPoints[pathLength++] = oceanWaypoints[0].pixel; // Suez
+    }
+    else if (routeType == 2) { // Europe to East Asia via Suez
+        pathPoints[pathLength++] = oceanWaypoints[2].pixel; // Gibraltar
+        pathPoints[pathLength++] = oceanWaypoints[0].pixel; // Suez
+        pathPoints[pathLength++] = oceanWaypoints[4].pixel; // Malacca
+    }
+    else if (routeType == 3) { // Americas to Asia via Pacific
+        pathPoints[pathLength++] = oceanWaypoints[3].pixel; // Panama
+        pathPoints[pathLength++] = oceanWaypoints[7].pixel; // Mid-Pacific
+    }
+    else if (routeType == 4) { // Africa to Asia via Indian Ocean
+        pathPoints[pathLength++] = oceanWaypoints[1].pixel; // Cape
+        pathPoints[pathLength++] = oceanWaypoints[8].pixel; // Mid-Indian
+    }
+    else if (routeType == 5) { // Cross-Atlantic
+        pathPoints[pathLength++] = oceanWaypoints[6].pixel; // Mid-Atlantic
+    }
+    else if (routeType == 6) { // Around Africa
+        pathPoints[pathLength++] = oceanWaypoints[1].pixel; // Cape of Good Hope
+    }
+    else {
+        // For nearby routes, add a gentle arc
+        sf::Vector2f mid = (start + end) / 2.f;
+        sf::Vector2f diff = end - start;
+        sf::Vector2f perp(-diff.y, diff.x);
+        float len = sqrt(perp.x * perp.x + perp.y * perp.y);
+        if (len > 0) {
+            perp.x /= len;
+            perp.y /= len;
+            float dist = sqrt(diff.x * diff.x + diff.y * diff.y);
+            mid += perp * (dist * 0.1f);
+            pathPoints[pathLength++] = mid;
+        }
     }
 
-    sf::Sprite mapSprite(mapTexture);
-    sf::Vector2u mapSize = mapTexture.getSize();
+    pathPoints[pathLength++] = end;
+}
 
-    for (int i = 0; i < portCount; ++i)
-        ports[i].pixel = latlonToPixel(ports[i].lat, ports[i].lon, mapSize);
+// Draw smooth curved path through waypoints
+void drawOceanRoute(sf::RenderWindow& window, sf::Vector2f* points, int pointCount, sf::Color color) {
+    if (pointCount < 2) return;
 
-    sf::RenderWindow window(sf::VideoMode(1200, 700), "Shipping Routes Map");
-    window.setFramerateLimit(60);
+    // Draw curved segments between waypoints
+    for (int i = 0; i < pointCount - 1; ++i) {
+        sf::Vector2f start = points[i];
+        sf::Vector2f end = points[i + 1];
 
-    sf::View view = window.getDefaultView();
-    float zoom = 1.f;
+        // Bezier curve control point
+        sf::Vector2f mid = (start + end) / 2.f;
+        sf::Vector2f diff = end - start;
+        sf::Vector2f perp(-diff.y, diff.x);
+        float len = sqrt(perp.x * perp.x + perp.y * perp.y);
+        if (len > 0) perp = perp / len;
 
-    sf::Font font;
-    font.loadFromFile("Arial.ttf");
+        float dist = sqrt(diff.x * diff.x + diff.y * diff.y);
+        sf::Vector2f control = mid + perp * (dist * 0.08f);
 
-    sf::CircleShape portShape(PORT_RADIUS);
-    portShape.setOrigin(PORT_RADIUS, PORT_RADIUS);
-    portShape.setFillColor(sf::Color::White);
-    portShape.setOutlineThickness(1.f);
-    portShape.setOutlineColor(sf::Color(120, 120, 120));
+        // Draw curve
+        int segments = 15;
+        sf::Vertex line[2];
 
-    sf::CircleShape portHighlight(HIGHLIGHT_RADIUS);
-    portHighlight.setOrigin(HIGHLIGHT_RADIUS, HIGHLIGHT_RADIUS);
-    portHighlight.setOutlineThickness(2.f);
-    portHighlight.setOutlineColor(sf::Color::Yellow);
-    portHighlight.setFillColor(sf::Color::Transparent);
+        for (int j = 0; j < segments; ++j) {
+            float t1 = (float)j / segments;
+            float t2 = (float)(j + 1) / segments;
 
-    bool dragging = false;
-    sf::Vector2i lastMouse;
-    int hoveredPort = -1, hoveredRoute = -1, selectedRoute = -1;
+            float u1 = 1 - t1;
+            sf::Vector2f p1 = u1 * u1 * start + 2.f * u1 * t1 * control + t1 * t1 * end;
 
-    while (window.isOpen()) {
-        sf::Event e;
-        while (window.pollEvent(e)) {
-            if (e.type == sf::Event::Closed) window.close();
-            if (e.type == sf::Event::MouseWheelScrolled) {
-                zoom *= (e.mouseWheelScroll.delta > 0) ? 0.9f : 1.1f;
-                if (zoom < 0.1f) zoom = 0.1f;
-                if (zoom > 10.f) zoom = 10.f;
-                view.setSize(window.getDefaultView().getSize().x * zoom, window.getDefaultView().getSize().y * zoom);
-            }
-            if (e.type == sf::Event::MouseButtonPressed && e.mouseButton.button == sf::Mouse::Left) {
-                dragging = true;
-                lastMouse = sf::Mouse::getPosition(window);
-            }
-            if (e.type == sf::Event::MouseButtonReleased && e.mouseButton.button == sf::Mouse::Left) {
-                dragging = false;
-                if (hoveredRoute != -1) {
-                    if (selectedRoute == hoveredRoute) selectedRoute = -1;
-                    else selectedRoute = hoveredRoute;
-                }
-            }
-            if (e.type == sf::Event::MouseMoved && dragging) {
-                sf::Vector2i now = sf::Mouse::getPosition(window);
-                sf::Vector2f delta = window.mapPixelToCoords(lastMouse) - window.mapPixelToCoords(now);
-                view.move(delta);
-                lastMouse = now;
-            }
-            if (e.type == sf::Event::KeyPressed && e.key.code == sf::Keyboard::R) {
-                view = window.getDefaultView();
-                zoom = 1.f;
-            }
-        }
+            float u2 = 1 - t2;
+            sf::Vector2f p2 = u2 * u2 * start + 2.f * u2 * t2 * control + t2 * t2 * end;
 
-        // Hover detection
-        sf::Vector2i mousePix = sf::Mouse::getPosition(window);
-        sf::Vector2f world = window.mapPixelToCoords(mousePix, view);
-        hoveredPort = -1; hoveredRoute = -1;
-
-        for (int i = 0; i < portCount; ++i) {
-            float dx = ports[i].pixel.x - world.x;
-            float dy = ports[i].pixel.y - world.y;
-            if (sqrt(dx * dx + dy * dy) <= 10.f) {
-                hoveredPort = i;
-                break;
-            }
-        }
-
-        for (int i = 0; i < routeCount; ++i) {
-            if (!routes[i].valid) continue;
-            sf::Vector2f a = ports[routes[i].originIndex].pixel;
-            sf::Vector2f b = ports[routes[i].destinationIndex].pixel;
-            sf::Vector2f ap = world - a;
-            sf::Vector2f ab = b - a;
-            float ab2 = ab.x * ab.x + ab.y * ab.y;
-            if (ab2 == 0) continue;
-            float t = (ap.x * ab.x + ap.y * ab.y) / ab2;
-            if (t < 0) t = 0; if (t > 1) t = 1;
-            sf::Vector2f proj = a + ab * t;
-            float dist = sqrt((proj.x - world.x) * (proj.x - world.x) + (proj.y - world.y) * (proj.y - world.y));
-            if (dist <= 6.f) { hoveredRoute = i; break; }
-        }
-
-        window.clear(sf::Color::Black);
-        window.setView(view);
-        window.draw(mapSprite);
-
-        // Draw routes
-        for (int i = 0; i < routeCount; ++i) {
-            if (!routes[i].valid) continue;
-            sf::Vector2f a = ports[routes[i].originIndex].pixel;
-            sf::Vector2f b = ports[routes[i].destinationIndex].pixel;
-            sf::Vertex line[2];
-            line[0].position = a;
-            line[1].position = b;
-
-            bool isSel = (i == selectedRoute);
-            bool isHover = (i == hoveredRoute);
-            bool fromHover = (hoveredPort == routes[i].originIndex);
-
-            if (isSel)
-                line[0].color = line[1].color = sf::Color::Cyan;
-            else if (isHover)
-                line[0].color = line[1].color = sf::Color::Yellow;
-            else if (fromHover)
-                line[0].color = line[1].color = sf::Color(255, 140, 0);
-            else
-                line[0].color = line[1].color = sf::Color(200, 200, 200, 90);
+            line[0].position = p1;
+            line[1].position = p2;
+            line[0].color = color;
+            line[1].color = color;
 
             window.draw(line, 2, sf::Lines);
         }
+    }
+}
 
-        // Draw ports
-        for (int i = 0; i < portCount; ++i) {
-            portShape.setPosition(ports[i].pixel);
-            window.draw(portShape);
-            if (i == hoveredPort) {
-                portHighlight.setPosition(ports[i].pixel);
-                window.draw(portHighlight);
-            }
+void drawPortDropdown(sf::RenderWindow& window, sf::Font& font, int portIndex, sf::Vector2i mousePos) {
+    int outgoingCount = 0;
+    for (int i = 0; i < routeCount; ++i) {
+        if (routes[i].valid && routes[i].originIndex == portIndex) {
+            outgoingCount++;
         }
-
-        window.setView(window.getDefaultView());
-        sf::Text info("", font, 14);
-        info.setFillColor(sf::Color::White);
-
-        if (hoveredRoute != -1) {
-            Routes& r = routes[hoveredRoute];
-            string txt = ports[r.originIndex].name + " -> " + ports[r.destinationIndex].name +
-                " | " + r.date + " " + r.depTime + "-" + r.arrTime +
-                " | $" + to_string(r.vCost) + " | " + r.company;
-            info.setString(txt);
-            info.setPosition(mousePix.x + 10, mousePix.y + 10);
-            window.draw(info);
-        }
-        else if (hoveredPort != -1) {
-            string txt = ports[hoveredPort].name;
-            info.setString(txt);
-            info.setPosition(mousePix.x + 10, mousePix.y + 10);
-            window.draw(info);
-        }
-
-        window.display();
     }
 
+    float dropdownWidth = 300.f;
+    float lineHeight = 20.f;
+    float headerHeight = 25.f;
+    int maxVisibleRoutes = 10;
+    int visibleRoutes = (outgoingCount < maxVisibleRoutes) ? outgoingCount : maxVisibleRoutes;
+    float dropdownHeight = headerHeight + (visibleRoutes + 1) * lineHeight + 10.f;
+
+    sf::RectangleShape dropdown(sf::Vector2f(dropdownWidth, dropdownHeight));
+    dropdown.setPosition(mousePos.x + 15, mousePos.y + 15);
+    dropdown.setFillColor(sf::Color(40, 40, 40, 240));
+    dropdown.setOutlineThickness(2.f);
+    dropdown.setOutlineColor(sf::Color(255, 200, 0));
+    window.draw(dropdown);
+
+    sf::Text header("", font, 16);
+    header.setString(ports[portIndex].name);
+    header.setFillColor(sf::Color(255, 200, 0));
+    header.setStyle(sf::Text::Bold);
+    header.setPosition(mousePos.x + 25, mousePos.y + 20);
+    window.draw(header);
+
+    sf::Text coords("", font, 12);
+    coords.setString("Lat: " + intToString((int)ports[portIndex].lat) +
+        ", Lon: " + intToString((int)ports[portIndex].lon));
+    coords.setFillColor(sf::Color(200, 200, 200));
+    coords.setPosition(mousePos.x + 25, mousePos.y + 42);
+    window.draw(coords);
+
+    sf::Text routesHeader("", font, 13);
+    routesHeader.setString("Outgoing Routes (" + intToString(outgoingCount) + "):");
+    routesHeader.setFillColor(sf::Color(150, 220, 255));
+    routesHeader.setStyle(sf::Text::Bold);
+    routesHeader.setPosition(mousePos.x + 25, mousePos.y + 62);
+    window.draw(routesHeader);
+
+    int displayCount = 0;
+    float yOffset = 82.f;
+
+    for (int i = 0; i < routeCount && displayCount < maxVisibleRoutes; ++i) {
+        if (routes[i].valid && routes[i].originIndex == portIndex) {
+            sf::Text routeInfo("", font, 11);
+            string routeText = "-> " + ports[routes[i].destinationIndex].name +
+                " | " + routes[i].date + " | $" + intToString(routes[i].vCost);
+            routeInfo.setString(routeText);
+            routeInfo.setFillColor(sf::Color(220, 220, 220));
+            routeInfo.setPosition(mousePos.x + 30, mousePos.y + yOffset);
+            window.draw(routeInfo);
+
+            yOffset += lineHeight;
+            displayCount++;
+        }
     }
-};
+
+    if (outgoingCount > maxVisibleRoutes) {
+        sf::Text more("", font, 11);
+        more.setString("... and " + intToString(outgoingCount - maxVisibleRoutes) + " more");
+        more.setFillColor(sf::Color(150, 150, 150));
+        more.setStyle(sf::Text::Italic);
+        more.setPosition(mousePos.x + 30, mousePos.y + yOffset);
+        window.draw(more);
+    }
+}
