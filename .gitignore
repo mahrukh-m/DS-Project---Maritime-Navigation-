@@ -1,3 +1,51 @@
+# ---- Compiled files ----
 *.exe
 *.dll
-*.json
+*.lib
+*.a
+*.o
+*.so
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.cache
+
+# ---- Build folders ----
+Debug/
+Release/
+x64/
+x86/
+build/
+out/
+bin/
+obj/
+
+# ---- SFML DLLs ----
+sfml-*.dll
+
+# ---- VS Code ----
+.vscode/
+*.code-workspace
+
+# ---- Visual Studio ----
+*.sdf
+*.ipch
+*.tlog
+*.log
+*.db
+*.sq
+*.pch
+*.aps
+*.tmp
+*.trx
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# ---- CMake ----
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
