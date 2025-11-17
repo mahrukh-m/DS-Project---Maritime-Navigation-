@@ -1,3 +1,5 @@
+#include <SFML/Graphics.hpp>
+#include "SFMLrun.h"
 #include <iostream>
 #include "Graph.h"
 using namespace std;
@@ -17,3 +19,5 @@ int main()
     getline(cin >> ws, date);
     g.searchRoutes(source, destination, date);
 }
+
+
