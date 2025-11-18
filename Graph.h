@@ -709,7 +709,7 @@ struct Graph
         bookingCount++;
     }
 
-        void printGraph()
+    void printGraph()
     {
         for (int i = 0; i < vertices; i++)
         {
