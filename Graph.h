@@ -1,4 +1,3 @@
-#pragma once    
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -32,6 +31,19 @@ struct Vertex
     int portCharge;
 };
 
+struct Booking
+{
+    string customerName;
+    string cargoType;
+    int cargoWeight;
+    string source;
+    string destination;
+    string date;
+    int routeChoice;
+    int totalCost;
+    string bookingID;
+};
+
 struct Graph
 {
     int vertices;
@@ -41,6 +53,7 @@ struct Graph
 
     static const int totalRoutes = 100;
     static const int totalDepth = 10;
+    static const int maxBookings = 50;
 
     struct FoundPath
     {
@@ -61,6 +74,9 @@ struct Graph
 
     FoundPath foundPaths[totalRoutes];
     int pathCount;
+
+    Booking bookings[maxBookings];
+    int bookingCount;
 
     Graph()
     {
@@ -84,6 +100,7 @@ struct Graph
         }
         head = NULL;
         pathCount = 0;
+        bookingCount = 0;
     }
 
     void addToGraph(Route* route, string origin, int index)
@@ -136,23 +153,8 @@ struct Graph
             addToGraph(route, origin, index);
             count++;
         }
-        cout << "Successfully loaded file" << endl << endl;
+        cout << "Successfully loaded " << count << " routes from file" << endl << endl;
         fin.close();
-    }
-
-    void printGraph()
-    {
-        for (int i = 0; i < vertices; i++)
-        {
-            Route* temp = edges[i];
-            cout << ports[i] << ": ";
-            while (temp != NULL)
-            {
-                cout << " --> " << temp->destination;
-                temp = temp->next;
-            }
-            cout << endl;
-        }
     }
 
     void displayPortRoutes(string portName)
@@ -298,12 +300,12 @@ struct Graph
         }
 
         string result = "";
-        if (day < 10) 
+        if (day < 10)
         {
             result += "0";
         }
         result = result + to_string(day) + "/";
-        if (month < 10) 
+        if (month < 10)
         {
             result += "0";
         }
@@ -346,7 +348,7 @@ struct Graph
 
             if (totalLayover >= minLayover)
             {
-                return true; 
+                return true;
             }
         }
         return false;
@@ -391,7 +393,7 @@ struct Graph
         return false;
     }
 
-    bool iterativeDeepeningSearch(string currPort, string destination, string searchDate,int depthLimit, Route* currentPath[], string visitedPorts[], int currentDepth, bool isFirstLeg)
+    bool iterativeDeepeningSearch(string currPort, string destination, string searchDate, int depthLimit, Route* currentPath[], string visitedPorts[], int currentDepth, bool isFirstLeg)
     {
         if (currPort == destination && currentDepth > 0)
         {
@@ -485,6 +487,7 @@ struct Graph
             cout << "The source and destination cannot be the same" << endl;
             return;
         }
+
         pathCount = 0;
 
         for (int i = 0; i < totalRoutes; i++)
@@ -507,9 +510,10 @@ struct Graph
 
         if (pathCount == 0)
         {
-            cout << "Sorry, no routes have been found" << endl;
+            cout << "\nSorry, no routes have been found for the given criteria." << endl;
             return;
         }
+
         sortPathsByLength();
         displayFoundRoutes(source, destination);
     }
@@ -542,46 +546,47 @@ struct Graph
                 cout << endl;
                 if (stops == 0)
                 {
-                    cout << "Direct Route: " << endl;
+                    cout << "Direct Routes: " << endl;
                 }
                 else if (stops == 1)
                 {
-                    cout << "Route having 1 stop: " << endl;
+                    cout << "Routes with 1 stop: " << endl;
                 }
                 else
                 {
-                    cout << "Route having " << stops << " stops: " << endl;
+                    cout << "Routes with " << stops << " stops: " << endl;
                 }
                 cout << endl;
             }
 
             if (stops == 0)
             {
-                cout << source << " --> " << destination << endl;
+                cout << "Route no. " << (i + 1) << ": " << source << " --> " << destination << endl;
                 Route* r = foundPaths[i].routes[0];
-                cout << "  Date: " << r->date << endl;
-                cout << "  Departure Time: " << r->depTime << endl;
-                cout << "  Arrival Time: " << r->arrTime << endl;
-                cout << "  Cost: " << r->vCost <<"$" << endl;
-                cout << "  Company: " << r->company << endl;
+                cout << "Date: " << r->date << endl;
+                cout << "Departure: " << r->depTime << endl;
+                cout << "Arrival: " << r->arrTime << endl;
+                cout << "Cost: " << r->vCost << "$" << endl;
+                cout << "Company: " << r->company << endl;
             }
             else
             {
-                cout << "Route " << (i + 1) << ":" << endl;
+                cout << "Route no. " << (i + 1) << ":" << endl;
                 cout << "Path: " << source;
                 for (int j = 0; j < foundPaths[i].length; j++)
                 {
                     cout << " --> " << foundPaths[i].routes[j]->destination;
                 }
                 cout << endl << endl;
+
                 string currentPort = source;
                 for (int j = 0; j < foundPaths[i].length; j++)
                 {
                     Route* r = foundPaths[i].routes[j];
-                    cout << "Leg " << (j + 1) << ": " << "\n" << currentPort << " to " << r->destination << endl;
+                    cout << "Leg " << (j + 1) << ": " << currentPort << " to " << r->destination << endl;
                     cout << "Date: " << r->date << endl;
-                    cout << "Departure Time: " << r->depTime << endl;
-                    cout << "Arrival Time: " << r->arrTime << endl;
+                    cout << "Departure: " << r->depTime << endl;
+                    cout << "Arrival: " << r->arrTime << endl;
                     cout << "Cost: " << r->vCost << "$" << endl;
                     cout << "Company: " << r->company << endl;
 
@@ -594,6 +599,7 @@ struct Graph
                         int arrivalDateInt = dateConversion(r->date);
                         int departureDateInt = dateConversion(nextRoute->date);
                         int layoverTime = 0;
+
                         if (arrivalDateInt == departureDateInt)
                         {
                             layoverTime = departureMinutes - arrivalMinutes;
@@ -606,11 +612,11 @@ struct Graph
 
                         int layoverHours = layoverTime / 60;
                         int layoverMinutes = layoverTime % 60;
-                        cout << "Layover at " << r->destination << ": " << layoverHours << "hrs " << layoverMinutes << "mins";
+                        cout << "Layover: " << layoverHours << "h " << layoverMinutes << "m";
 
                         if (arrivalDateInt != departureDateInt)
                         {
-                            cout << " (departure on next day)";
+                            cout << "(next day)";
                         }
                         cout << endl;
                     }
@@ -619,11 +625,126 @@ struct Graph
                     currentPort = r->destination;
                 }
 
-                cout << "  Total Cost: " << foundPaths[i].totalCost << "$" << endl;
+                cout << "  Total Cost: $" << foundPaths[i].totalCost << endl;
             }
             cout << endl;
         }
 
         cout << "Total routes found: " << pathCount << endl;
+    }
+
+    string generateBookingID()
+    {
+        string id = "BK";
+        int num = bookingCount + 10001;
+        id = id + to_string(num);
+        return id;
+    }
+
+    void bookRoute()
+    {
+        if (bookingCount >= maxBookings)
+        {
+            cout << "\nBooking system is full. Cannot accept more bookings." << endl;
+            return;
+        }
+
+        string customerName, cargoType, source, destination, date;
+        int cargoWeight;
+
+        cout << "Enter your name: ";
+        getline(cin >> ws, customerName);
+
+        cout << "Enter cargo type: ";
+        getline(cin >> ws, cargoType);
+
+        cout << "Enter cargo weight (kg): ";
+        cin >> cargoWeight;
+
+        cout << "\nEnter origin port: ";
+        getline(cin >> ws, source);
+
+        cout << "Enter destination port: ";
+        getline(cin >> ws, destination);
+
+        cout << "Enter departure date (DD/MM/YYYY): ";
+        getline(cin >> ws, date);
+
+        searchRoutes(source, destination, date);
+
+        if (pathCount == 0)
+        {
+            cout << "\nNo routes available. Booking cannot be completed." << endl;
+            return;
+        }
+
+        cout << "\nSelect a route to book (1-" << pathCount << "): ";
+        int choice;
+        cin >> choice;
+
+        if (choice < 1 || choice > pathCount)
+        {
+            cout << "Invalid choice. Booking cancelled." << endl;
+            return;
+        }
+
+        bookings[bookingCount].customerName = customerName;
+        bookings[bookingCount].cargoType = cargoType;
+        bookings[bookingCount].cargoWeight = cargoWeight;
+        bookings[bookingCount].source = source;
+        bookings[bookingCount].destination = destination;
+        bookings[bookingCount].date = date;
+        bookings[bookingCount].routeChoice = choice;
+        bookings[bookingCount].totalCost = foundPaths[choice - 1].totalCost;
+        bookings[bookingCount].bookingID = generateBookingID();
+
+		cout << "Booking has been confirmed" << endl;
+        cout << "Booking ID: " << bookings[bookingCount].bookingID << endl;
+        cout << "Customer: " << customerName << endl;
+        cout << "Route: " << source << " to " << destination << endl;
+        cout << "Date: " << date << endl;
+        cout << "Cargo: " << cargoType << " (" << cargoWeight << " kg)" << endl;
+        cout << "Total Cost: " << bookings[bookingCount].totalCost << "$" << endl;
+
+        bookingCount++;
+    }
+
+        void printGraph()
+    {
+        for (int i = 0; i < vertices; i++)
+        {
+            Route* temp = edges[i];
+            cout << ports[i] << ": ";
+            while (temp != NULL)
+            {
+                cout << " --> " << temp->destination;
+                temp = temp->next;
+            }
+            cout << endl;
+        }
+    }
+
+    void viewBookings()
+    {
+        if (bookingCount == 0)
+        {
+            cout << "\nNo bookings found." << endl;
+            return;
+        }
+        cout << endl;
+
+        for (int i = 0; i < bookingCount; i++)
+        {
+            cout << "Booking " << (i + 1) << endl;
+            cout << "ID: " << bookings[i].bookingID << endl;
+            cout << "Customer: " << bookings[i].customerName << endl;
+            cout << "Route: " << bookings[i].source << " to " << bookings[i].destination << endl;
+            cout << "Date: " << bookings[i].date << endl;
+            cout << "Cargo: " << bookings[i].cargoType << " (" << bookings[i].cargoWeight << " kg)" << endl;
+            cout << "Cost: $" << bookings[i].totalCost << endl;
+            cout << endl;
+        }
+
+        cout << "Total bookings: " << bookingCount << endl;
     }
 };
