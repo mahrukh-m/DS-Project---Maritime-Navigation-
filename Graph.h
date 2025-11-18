@@ -630,7 +630,7 @@ struct Graph
             cout << endl;
         }
 
-        cout << "Total routes found: " << pathCount << endl;
+        cout << "Total routes found are: " << pathCount << endl;
     }
 
     string generateBookingID()
