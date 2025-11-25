@@ -317,6 +317,7 @@ int main() {
             continue;
         }
 
+        // ===================== DIJKSTRA PAGE =====================
         if (currentPage == DIJKSTRA)
         {
             window.close();
