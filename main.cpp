@@ -5,11 +5,12 @@
 #include "Graph.h"
 using namespace std;
 
-enum Page { MENU, MAP, BOOKING };
+enum Page { MENU, MAP, BOOKING, DIJKSTRA };
 
 int main() {
 
     Graph g;
+    g.loadFile("Routes.txt");
     Page currentPage = MENU;
 
     const string routeFile = "routes.txt";
@@ -43,6 +44,7 @@ int main() {
 
     Button mapBtn(centerX, centerY, buttonWidth, buttonHeight, "MAP", font);
     Button bookBtn(centerX, centerY + 120, buttonWidth, buttonHeight, "SHIP BOOKING", font);
+    Button dijkstraBtn(centerX, centerY + 240, buttonWidth, buttonHeight, "DIJKSTRA", font);
 
     // ===================== MAIN LOOP ============================
     while (window.isOpen()) 
@@ -61,11 +63,13 @@ int main() {
             window.draw(menuSprite);
             mapBtn.draw(window);
             bookBtn.draw(window);
+            dijkstraBtn.draw(window);
 
             if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
                 sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
                 if (mapBtn.isMouseOver(mousePos)) currentPage = MAP;
                 else if (bookBtn.isMouseOver(mousePos)) currentPage = BOOKING;
+                else if (dijkstraBtn.isMouseOver(mousePos)) currentPage = DIJKSTRA;
             }
 
             window.display();
@@ -297,14 +301,7 @@ int main() {
         // ===================== BOOKING PAGE ======================
         if (currentPage == BOOKING) 
         {
-            window.clear(sf::Color::Blue);
-            sf::Text bookingText("Booking Page", font, 30);
-            bookingText.setFillColor(sf::Color::White);
-            bookingText.setPosition(windowWidth / 4.f, windowHeight / 2.f - 15);
-            window.draw(bookingText);
-            window.display();
-            sf::sleep(sf::seconds(2));
-            g.loadFile("Routes.txt");
+            window.close();
             g.printGraph();
 
             string source, destination, date;
@@ -315,6 +312,22 @@ int main() {
             cout << "Enter the departure date (DD/MM/YYYY): ";
             getline(cin >> ws, date);
             g.searchRoutes(source, destination, date);
+
+            currentPage = MENU;
+            continue;
+        }
+
+        if (currentPage == DIJKSTRA)
+        {
+            window.close();
+            g.printGraph();
+
+            string source, destination;
+            cout << "Enter the source port (first letter should be capital): ";
+            getline(cin >> ws, source);
+            cout << "Enter the destination port (first letter should be capital): ";
+            getline(cin >> ws, destination);
+            g.dijkstraMinCost(source, destination);
 
             currentPage = MENU;
             continue;

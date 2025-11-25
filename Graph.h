@@ -4,6 +4,91 @@
 #include <string>
 using namespace std;
 
+struct HeapNode
+{
+    int index;
+    int cost;
+};
+
+struct PriorityQueue
+{
+    HeapNode nodes[40];
+    int size;
+
+    PriorityQueue()
+    {
+        size = 0;
+    }
+
+    void swapNodes(int a, int b)
+    {
+        HeapNode temp = nodes[a];
+        nodes[a] = nodes[b];
+        nodes[b] = temp;
+    }
+
+    void enqueue(int index, int cost)
+    {
+        nodes[size].index=index;
+        nodes[size].cost=cost;
+        size++;
+        int currentIndex = size - 1;
+        while(currentIndex>0 && nodes[currentIndex].cost < nodes[(currentIndex - 1) / 2].cost)
+        {
+            swapNodes(currentIndex, (currentIndex - 1) / 2);
+            currentIndex = (currentIndex - 1) / 2;
+        }
+    }
+
+    HeapNode dequeue()
+    {
+        HeapNode minNode = nodes[0];
+        nodes[0] = nodes[size - 1];
+        size--;
+        int currentIndex = 0;
+        while (true)
+        {
+            int leftChildIndex = 2 * currentIndex + 1;
+            int rightChildIndex = 2 * currentIndex + 2;
+            int smallestIndex = currentIndex;
+
+            if (leftChildIndex < size && nodes[leftChildIndex].cost < nodes[smallestIndex].cost)
+            {
+                smallestIndex = leftChildIndex;
+            }
+
+            if (rightChildIndex < size && nodes[rightChildIndex].cost < nodes[smallestIndex].cost)
+            {
+                smallestIndex = rightChildIndex;
+            }
+
+            if (smallestIndex != currentIndex)
+            {
+                swapNodes(currentIndex, smallestIndex);
+                currentIndex = smallestIndex;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return minNode;
+    }
+
+        bool isEmpty()
+        {
+            if(size == 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+    
+};
+
 struct Route
 {
     string destination;
@@ -36,7 +121,7 @@ struct Graph
 {
     int vertices;
     Route** edges;
-    string ports[40];
+    Vertex ports[40];
     Route* head;
 
     static const int totalRoutes = 100;
@@ -70,20 +155,30 @@ struct Graph
         {
             edges[i] = NULL;
         }
-        string temp[40] = { "AbuDhabi", "Alexandria", "Antwerp", "Athens", "Busan",
-                          "CapeTown", "Chittagong", "Colombo", "Copenhagen", "Doha",
-                          "Dubai", "Dublin", "Durban", "Genoa", "Hamburg", "Helsinki",
-                          "HongKong", "Istanbul", "Jakarta", "Jeddah", "Karachi",
-                          "Lisbon", "London", "LosAngeles", "Manila", "Marseille",
-                          "Melbourne", "Montreal", "Mumbai", "NewYork", "Osaka", "Oslo",
-                          "PortLouis", "Rotterdam", "Shanghai", "Singapore", "Stockholm",
-                          "Sydney", "Tokyo", "Vancouver" };
-        for (int i = 0; i < 40; i++)
-        {
-            ports[i] = temp[i];
-        }
+        readPortCharges("PortCharges.txt");
         head = NULL;
         pathCount = 0;
+    }
+
+    void readPortCharges(string fname)
+    {
+        ifstream fin(fname);
+        if (!fin)
+        {
+            cout << "Error loading port charges file" << endl;
+            return;
+        }
+        string portName;
+        int charge;
+        int index = 0;
+
+
+        while (fin >> portName >> charge && index < vertices) {
+            ports[index].port = portName;
+            ports[index].portCharge = charge;
+            index++;
+        }
+        fin.close();
     }
 
     void addToGraph(Route* route, string origin, int index)
@@ -110,7 +205,7 @@ struct Graph
     {
         for (int i = 0; i < vertices; i++)
         {
-            if (name == ports[i])
+            if (name == ports[i].port)
             {
                 return i;
             }
@@ -145,7 +240,7 @@ struct Graph
         for (int i = 0; i < vertices; i++)
         {
             Route* temp = edges[i];
-            cout << ports[i] << ": ";
+            cout << ports[i].port << ": ";
             while (temp != NULL)
             {
                 cout << " --> " << temp->destination;
@@ -626,4 +721,92 @@ struct Graph
 
         cout << "Total routes found: " << pathCount << endl;
     }
+
+    //================== DIJKSTRA ALGORITHM =====================
+
+    void dijkstraMinCost(string src, string dest)
+    {
+        int numPorts = vertices;
+        int srcIndex = getPortIndex(src);
+        int destIndex = getPortIndex(dest);
+
+        int costs[40];
+        bool visited[40];
+        int parents[40];
+
+        for(int i=0;i<numPorts;i++)
+        {
+            costs[i] = 1e9;
+            visited[i] = false;
+            parents[i] = -1;
+        }
+
+        costs[srcIndex] = 0;
+        PriorityQueue pq;
+        pq.enqueue(srcIndex, 0);
+
+        while(!pq.isEmpty())
+        {
+            HeapNode currentNode =pq.dequeue();
+            int currentNodeIndex =currentNode.index;
+            
+            if(visited[currentNodeIndex])
+            {
+                continue;
+            }
+            else
+            {
+                visited[currentNodeIndex] = true;
+            }
+
+            Route* temp = edges[currentNodeIndex];
+
+            while(temp!=NULL)
+            {
+                int neighbor = getPortIndex(temp->destination);
+                int cost = temp->vCost;
+                int portCharge = ports[neighbor].portCharge;
+                cost += portCharge;
+                
+                if(!visited[neighbor]&& costs[currentNodeIndex] + cost < costs[neighbor])
+                {
+                    costs[neighbor]= costs[currentNodeIndex]+cost;
+                    parents[neighbor]=currentNodeIndex;
+                    pq.enqueue(neighbor,costs[neighbor]);
+                }
+                temp=temp->next;
+            }
+        }
+
+        if(costs[destIndex]==1e9)
+        {
+            cout<<"No path exists from "<<src<<" to "<<dest<<endl;
+            return;
+        }
+
+        cout<<"Minimum cost from "<<src<<" to "<<dest<<" is: "<<costs[destIndex]<<"$"<<endl;
+        cout<<"Path: ";
+
+        int path[40];
+        int pathLength=0;
+        int current=destIndex;
+        while(current!=-1)
+        {
+            path[pathLength]=current;
+            pathLength++;
+            current=parents[current];
+        }
+
+        for(int i=pathLength-1;i>=0;i--)
+        {
+            cout<<ports[path[i]].port;
+            if(i!=0)
+            {
+                cout<<" -> ";
+            }
+        }
+        cout<<endl;
+    }
+
 };
+
