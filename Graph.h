@@ -434,7 +434,7 @@ struct Graph
         string expectedNextDate = getNextDate(prevRoute->date);
         int expectedNextDateInt = dateConversion(expectedNextDate);
 
-        if (nextDate == expectedNextDateInt)
+        if (nextDate >= expectedNextDateInt)
         {
             int minutesUntilMidnight = (24 * 60) - arrivalMinutes;
             int totalLayover = minutesUntilMidnight + departureMinutes;
@@ -677,27 +677,56 @@ struct Graph
                     cout << "Date: " << r->date << endl;
                     cout << "Departure Time: " << r->depTime << endl;
                     cout << "Arrival Time: " << r->arrTime << endl;
+
+                    // Check if this leg arrives next day
+                    int legDepMin = timeToMinutes(r->depTime);
+                    int legArrMin = timeToMinutes(r->arrTime);
+                    if (legArrMin < legDepMin)
+                    {
+                        cout << "(Arrival on next day)" << endl;
+                    }
+                    
                     cout << "Cost: " << r->vCost << "$" << endl;
                     cout << "Company: " << r->company << endl;
 
                     if (j < foundPaths[i].length - 1)
                     {
                         Route* nextRoute = foundPaths[i].routes[j + 1];
-                        int arrivalMinutes = timeToMinutes(r->arrTime);
-                        int departureMinutes = timeToMinutes(nextRoute->depTime);
+                    int arrivalMinutes = timeToMinutes(r->arrTime);
+                    int departureMinutes = timeToMinutes(nextRoute->depTime);
 
-                        int arrivalDateInt = dateConversion(r->date);
-                        int departureDateInt = dateConversion(nextRoute->date);
-                        int layoverTime = 0;
-                        if (arrivalDateInt == departureDateInt)
+                    int arrivalDateInt = dateConversion(r->date);
+                    int departureDateInt = dateConversion(nextRoute->date);
+                    
+                    int actualArrivalDate = arrivalDateInt;
+                    if (legArrMin < legDepMin)
+                    {
+                        string nextDay = getNextDate(r->date);
+                        actualArrivalDate = dateConversion(nextDay);
+                    }
+                    
+                    int layoverTime = 0;
+
+                    if (actualArrivalDate == departureDateInt)
+                    {
+                        layoverTime = departureMinutes - arrivalMinutes;
+                    }
+                    else if (departureDateInt > actualArrivalDate)
+                    {
+                        int minutesUntilMidnight = (24 * 60) - arrivalMinutes;
+                        
+                        int daysDiff = departureDateInt - actualArrivalDate;
+                        
+                        if (daysDiff == 1)
                         {
-                            layoverTime = departureMinutes - arrivalMinutes;
+                            layoverTime = minutesUntilMidnight + departureMinutes;
                         }
                         else
                         {
-                            int minutesUntilMidnight = (24 * 60) - arrivalMinutes;
-                            layoverTime = minutesUntilMidnight + departureMinutes;
+                            layoverTime = minutesUntilMidnight + ((daysDiff - 1) * 24 * 60) + departureMinutes;
                         }
+                    }
+
 
                         int layoverHours = layoverTime / 60;
                         int layoverMinutes = layoverTime % 60;
@@ -734,16 +763,22 @@ struct Graph
         bool visited[40];
         int parents[40];
 
+        Route* bestRoute[40];
+
         for(int i=0;i<numPorts;i++)
         {
             costs[i] = 1e9;
             visited[i] = false;
             parents[i] = -1;
+
+            bestRoute[i] = NULL;
         }
 
         costs[srcIndex] = 0;
         PriorityQueue pq;
         pq.enqueue(srcIndex, 0);
+
+        bestRoute[srcIndex] = NULL;
 
         while(!pq.isEmpty())
         {
@@ -759,6 +794,7 @@ struct Graph
                 visited[currentNodeIndex] = true;
             }
 
+            Route* currentRoute = bestRoute[currentNodeIndex]; 
             Route* temp = edges[currentNodeIndex];
 
             while(temp!=NULL)
@@ -767,11 +803,20 @@ struct Graph
                 int cost = temp->vCost;
                 int portCharge = ports[neighbor].portCharge;
                 cost += portCharge;
+
+                bool canTravel = false;
+
+                if (bestRoute[currentNodeIndex] == NULL) {
+                    canTravel = true;
+                } else {
+                    canTravel = isTimeValid(bestRoute[currentNodeIndex], temp);
+                }
                 
-                if(!visited[neighbor]&& costs[currentNodeIndex] + cost < costs[neighbor])
+                if(canTravel && costs[currentNodeIndex] + cost < costs[neighbor])
                 {
                     costs[neighbor]= costs[currentNodeIndex]+cost;
                     parents[neighbor]=currentNodeIndex;
+                    bestRoute[neighbor] = temp;
                     pq.enqueue(neighbor,costs[neighbor]);
                 }
                 temp=temp->next;
@@ -788,25 +833,64 @@ struct Graph
         cout<<"Path: ";
 
         int path[40];
-        int pathLength=0;
-        int current=destIndex;
-        while(current!=-1)
-        {
-            path[pathLength]=current;
-            pathLength++;
-            current=parents[current];
-        }
+        int count = 0;
+        for (int v = destIndex; v != -1; v = parents[v])
+            path[count++] = v;
 
-        for(int i=pathLength-1;i>=0;i--)
-        {
-            cout<<ports[path[i]].port;
-            if(i!=0)
-            {
-                cout<<" -> ";
+        cout << "Path: ";
+        for (int i = count - 1; i >= 0; i--) {
+            cout << ports[path[i]].port;
+            if (i > 0) cout << " -> ";
+        }
+        cout << endl<<endl;
+
+        cout << "Detailed Route Information"<<endl;
+        for (int i = count - 1; i > 0; i--) {
+            int from = path[i];
+            int to = path[i - 1];
+            Route* temp = edges[from];
+            while (temp != NULL) {
+                if (temp->destination == ports[to].port) {
+                    cout << "\nLeg " << (count - i)
+                        << ": " << ports[from].port << " -> " << ports[to].port << endl;
+                    cout << "Date: " << temp->date << endl;
+                    cout << "Departure Time: " << temp->depTime << endl;
+                    cout << "Arrival Time: " << temp->arrTime << endl;
+                    cout << "Cost: " << temp->vCost << "$" << endl;
+                    cout << "Company: " << temp->company << endl;
+
+                    if (i > 1) {
+                        Route* nextR = edges[to];
+                        while (nextR != NULL) {
+                            if (nextR->destination == ports[path[i - 2]].port) {
+                                int arrMins = timeToMinutes(temp->arrTime);
+                                int depMins = timeToMinutes(nextR->depTime);
+                                int diff = depMins - arrMins;
+                                bool nextDay = false;
+                                if (diff < 0) {
+                                    diff += 24 * 60;
+                                    nextDay = true;
+                                }
+                                int hrs = diff / 60;
+                                int mins = diff % 60;
+                                cout << "Layover at " << ports[to].port << ": "
+                                    << hrs << "hrs " << mins << "mins";
+                                if (nextDay)
+                                    cout << " (departure on next day)";
+                                cout << endl;
+                                break;
+                            }
+                            nextR = nextR->next;
+                        }
+                    }
+                    break;
+                }
+                temp = temp->next;
             }
         }
-        cout<<endl;
     }
+
+    
 
 };
 
