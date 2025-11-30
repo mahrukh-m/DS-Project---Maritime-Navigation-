@@ -890,6 +890,147 @@ struct Graph
         }
     }
 
+    void dijkstraMinTime(string src, string dest)
+    {
+        int numPorts = vertices;
+        int srcIndex = getPortIndex(src);
+        int destIndex = getPortIndex(dest);
+
+        int times[40];
+        bool visited[40];
+        int parents[40];
+
+        Route* bestRoute[40];
+
+        for(int i=0;i<numPorts;i++)
+        {
+            times[i] = 1e9;
+            visited[i] = false;
+            parents[i] = -1;
+
+            bestRoute[i] = NULL;
+        }
+
+        times[srcIndex] = 0;
+        PriorityQueue pq;
+        pq.enqueue(srcIndex, 0);
+
+        bestRoute[srcIndex] = NULL;
+
+        while(!pq.isEmpty())
+        {
+            HeapNode currentNode =pq.dequeue();
+            int currentNodeIndex =currentNode.index;
+            
+            if(visited[currentNodeIndex])
+            {
+                continue;
+            }
+            else
+            {
+                visited[currentNodeIndex] = true;
+            }
+
+            Route* currentRoute = bestRoute[currentNodeIndex]; 
+            Route* temp = edges[currentNodeIndex];
+
+            while(temp!=NULL)
+            {
+                int neighbor = getPortIndex(temp->destination);
+                int time = timeToMinutes(temp->arrTime)- timeToMinutes(temp->depTime);
+                
+                if (time < 0) //next day arrival
+                {
+                    time += 24 * 60; 
+                }
+    
+
+                bool canTravel = false;
+
+                if (bestRoute[currentNodeIndex] == NULL) {
+                    canTravel = true;
+                } else {
+                    canTravel = isTimeValid(bestRoute[currentNodeIndex], temp);
+                }
+                
+                if(canTravel && times[currentNodeIndex]< times[neighbor])
+                {
+                    times[neighbor]= times[currentNodeIndex]+time;
+                    parents[neighbor]=currentNodeIndex;
+                    bestRoute[neighbor] = temp;
+                    pq.enqueue(neighbor,times[neighbor]);
+                }
+                temp=temp->next;
+            }
+        }
+
+        if(times[destIndex]==1e9)
+        {
+            cout<<"No path exists from "<<src<<" to "<<dest<<endl;
+            return;
+        }
+
+        cout<<"Minimum time from "<<src<<" to "<<dest<<" is: "<<times[destIndex]<<" mins "<<endl;
+        cout<<"Path: ";
+
+        int path[40];
+        int count = 0;
+        for (int v = destIndex; v != -1; v = parents[v])
+            path[count++] = v;
+
+        cout << "Path: ";
+        for (int i = count - 1; i >= 0; i--) {
+            cout << ports[path[i]].port;
+            if (i > 0) cout << " -> ";
+        }
+        cout << endl<<endl;
+
+        cout << "Detailed Route Information"<<endl;
+        for (int i = count - 1; i > 0; i--) {
+            int from = path[i];
+            int to = path[i - 1];
+            Route* temp = edges[from];
+            while (temp != NULL) {
+                if (temp->destination == ports[to].port) {
+                    cout << "\nLeg " << (count - i)
+                        << ": " << ports[from].port << " -> " << ports[to].port << endl;
+                    cout << "Date: " << temp->date << endl;
+                    cout << "Departure Time: " << temp->depTime << endl;
+                    cout << "Arrival Time: " << temp->arrTime << endl;
+                    cout << "Cost: " << temp->vCost << "$" << endl;
+                    cout << "Company: " << temp->company << endl;
+
+                    if (i > 1) {
+                        Route* nextR = edges[to];
+                        while (nextR != NULL) {
+                            if (nextR->destination == ports[path[i - 2]].port) {
+                                int arrMins = timeToMinutes(temp->arrTime);
+                                int depMins = timeToMinutes(nextR->depTime);
+                                int diff = depMins - arrMins;
+                                bool nextDay = false;
+                                if (diff < 0) {
+                                    diff += 24 * 60;
+                                    nextDay = true;
+                                }
+                                int hrs = diff / 60;
+                                int mins = diff % 60;
+                                cout << "Layover at " << ports[to].port << ": "
+                                    << hrs << "hrs " << mins << "mins";
+                                if (nextDay)
+                                    cout << " (departure on next day)";
+                                cout << endl;
+                                break;
+                            }
+                            nextR = nextR->next;
+                        }
+                    }
+                    break;
+                }
+                temp = temp->next;
+            }
+        }
+    }
+
     
 
 };
