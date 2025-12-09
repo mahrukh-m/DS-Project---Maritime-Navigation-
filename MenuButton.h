@@ -22,12 +22,12 @@ public:
         text.setFont(font);
         text.setString(label);
         text.setFillColor(textColor);
-        text.setCharacterSize(32);
+        text.setCharacterSize(40);
 
         // center text
         sf::FloatRect tb = text.getLocalBounds();
         text.setOrigin(tb.width/2, tb.height/2);
-        text.setPosition(x + w/2, y + h/2 );
+        text.setPosition(x + w/2, y + h/2 -5);
     }
 
     bool isHovered(sf::RenderWindow& win) {
